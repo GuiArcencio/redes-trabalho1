@@ -1,29 +1,41 @@
 #!/usr/bin/env python3
 import asyncio
-from tcp import Servidor
 import re
 
+from grader.tcp import Servidor, Conexao
+from mensagens import interpretar_mensagem
 
-def validar_nome(nome):
+
+def validar_nome(nome: str) -> bool:
     return re.match(br'^[a-zA-Z][a-zA-Z0-9_-]*$', nome) is not None
 
+def sair(conexao: Conexao):
+    ip_cliente, porta_cliente = conexao.s.getpeername()
+    print(f'Conexão fechada com {ip_cliente}:{porta_cliente}')
 
-def sair(conexao):
-    print(conexao, 'conexão fechada')
     conexao.fechar()
 
 
-def dados_recebidos(conexao, dados):
+def dados_recebidos(conexao: Conexao, dados: bytes):
     if dados == b'':
         return sair(conexao)
-    print(conexao, dados)
 
+    ip_cliente, porta_cliente = conexao.s.getpeername()
+    print(f'Mensagem recebida de {ip_cliente}:{porta_cliente}: {dados}')
 
-def conexao_aceita(conexao):
-    print(conexao, 'nova conexão')
+    interpretar_mensagem(conexao, dados.decode('utf-8'))
+
+def conexao_aceita(conexao: Conexao):
+    ip_cliente, porta_cliente = conexao.s.getpeername()
+    print(f'Nova conexão de {ip_cliente}:{porta_cliente}')
+
     conexao.registrar_recebedor(dados_recebidos)
+    conexao._residuo = ''
 
+def main():
+    servidor = Servidor(6667)
+    servidor.registrar_monitor_de_conexoes_aceitas(conexao_aceita)
+    asyncio.get_event_loop().run_forever()
 
-servidor = Servidor(6667)
-servidor.registrar_monitor_de_conexoes_aceitas(conexao_aceita)
-asyncio.get_event_loop().run_forever()
+if __name__ == '__main__':
+    main()
