@@ -19,18 +19,25 @@ def sair(conexao: Conexao):
 def dados_recebidos(conexao: Conexao, dados: bytes):
     if dados == b'':
         return sair(conexao)
-
+    
     ip_cliente, porta_cliente = conexao.s.getpeername()
-    print(f'Mensagem recebida de {ip_cliente}:{porta_cliente}: {dados}')
+    conexao._residuo = conexao._residuo + dados
 
-    interpretar_mensagem(conexao, dados.decode('utf-8'))
+    mensagem, separador, restante = conexao._residuo.partition(b'\r\n')
+    while separador != b'':
+        print(f'Mensagem recebida de {ip_cliente}:{porta_cliente}: {dados}')
+
+        interpretar_mensagem(conexao, mensagem.decode('utf-8'))
+
+        conexao._residuo = restante
+        mensagem, separador, restante = conexao._residuo.partition(b'\r\n')
 
 def conexao_aceita(conexao: Conexao):
     ip_cliente, porta_cliente = conexao.s.getpeername()
     print(f'Nova conexão de {ip_cliente}:{porta_cliente}')
 
     conexao.registrar_recebedor(dados_recebidos)
-    conexao._residuo = ''
+    conexao._residuo = b''
 
 def main():
     servidor = Servidor(6667)
