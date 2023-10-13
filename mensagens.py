@@ -21,8 +21,20 @@ def tratar_ping(conexao: Conexao, payload: bytes):
 
 def tratar_nick(conexao: Conexao, apelido: bytes):
     if not validar_nome(apelido):
-        conexao.enviar(b':server 432 * %s :Erroneous nickname\r\n' % apelido)
+        conexao.enviar(b':server 432 %s %s :Erroneous nickname\r\n' % (conexao._apelido, apelido))
         return
     
-    conexao.enviar(b':server 001 %s :Welcome\r\n' % apelido)
-    conexao.enviar(b':server 422 %s :MOTD File is missing\r\n' % apelido)
+    estado = EstadoIRC.obter()
+    disponivel = estado.tentar_apelido_novo(conexao._apelido, apelido, conexao)
+    EstadoIRC.liberar()
+
+    if disponivel:
+        if conexao._apelido == b'*':
+            conexao.enviar(b':server 001 %s :Welcome\r\n' % apelido)
+            conexao.enviar(b':server 422 %s :MOTD File is missing\r\n' % apelido)
+        else:
+            conexao.enviar(b':%s NICK %s\r\n' % (conexao._apelido, apelido))
+
+        conexao._apelido = apelido 
+    else:
+        conexao.enviar(b':server 433 %s %s :Nickname is already in use\r\n' % (conexao._apelido, apelido))

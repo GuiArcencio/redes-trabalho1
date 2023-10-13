@@ -30,8 +30,9 @@ def conexao_aceita(conexao: Conexao):
     ip_cliente, porta_cliente = conexao.s.getpeername()
     print(f'Nova conexão de {ip_cliente}:{porta_cliente}')
 
-    conexao.registrar_recebedor(dados_recebidos)
     conexao._residuo = b''
+    conexao._apelido = b'*'
+    conexao.registrar_recebedor(dados_recebidos)
 
 def main():
     servidor = Servidor(6667)

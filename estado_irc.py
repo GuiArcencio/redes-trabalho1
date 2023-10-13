@@ -1,4 +1,6 @@
-from asyncio import Lock
+from __future__ import annotations
+from threading import Lock
+from grader.tcp import Conexao
 
 # Singleton de dados do servidor
 class EstadoIRC:
@@ -6,8 +8,8 @@ class EstadoIRC:
     _mutex = Lock()
 
     @classmethod
-    async def obter(cls):
-        await cls._mutex.acquire()
+    def obter(cls) -> EstadoIRC:
+        cls._mutex.acquire()
 
         if cls._instancia is None:
             cls._instancia = EstadoIRC()
@@ -22,3 +24,16 @@ class EstadoIRC:
         self._apelidos_usados = set()
         self._conexoes = dict()
         self._canais = dict()
+
+    def tentar_apelido_novo(self, apelido_atual: bytes, apelido: bytes, conexao: Conexao) -> bool:
+        if apelido.lower() in self._apelidos_usados:
+            return False
+        
+        if apelido_atual != b'*':
+            self._apelidos_usados.remove(apelido_atual.lower())
+            self._conexoes.pop(apelido_atual)
+
+        self._apelidos_usados.add(apelido.lower())
+        self._conexoes[apelido] = conexao
+        return True
+
