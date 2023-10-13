@@ -31,9 +31,11 @@ class EstadoIRC:
         
         if apelido_atual != b'*':
             self._apelidos_usados.remove(apelido_atual.lower())
-            self._conexoes.pop(apelido_atual)
+            self._conexoes.pop(apelido_atual.lower())
 
         self._apelidos_usados.add(apelido.lower())
-        self._conexoes[apelido] = conexao
+        self._conexoes[apelido.lower()] = conexao
         return True
 
+    def procurar_destinatario(self, destinatario: bytes) -> Conexao | None:
+        return self._conexoes.get(destinatario.lower(), None)

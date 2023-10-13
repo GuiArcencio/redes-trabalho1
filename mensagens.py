@@ -15,6 +15,12 @@ def interpretar_mensagem(conexao: Conexao, msg: bytes):
         tratar_ping(conexao, b' '.join(campos[1:]))
     elif verbo == b'NICK':
         tratar_nick(conexao, b' '.join(campos[1:]))
+    elif verbo == b'PRIVMSG' and len(campos) >= 3:
+        if campos[1][0:1] == b'#':
+            pass
+        else:
+            tratar_privmsg_pessoal(conexao, campos[1], b' '.join(campos[2:]))
+
 
 def tratar_ping(conexao: Conexao, payload: bytes):
     conexao.enviar(b':server PONG server :%s\r\n' % payload)
@@ -38,3 +44,12 @@ def tratar_nick(conexao: Conexao, apelido: bytes):
         conexao._apelido = apelido 
     else:
         conexao.enviar(b':server 433 %s %s :Nickname is already in use\r\n' % (conexao._apelido, apelido))
+
+def tratar_privmsg_pessoal(conexao: Conexao, destinatario: bytes, conteudo: bytes):
+    if conexao._apelido != b'*' and len(conteudo) >= 2 and conteudo[0:1] == b':':
+        estado = EstadoIRC.obter()
+        conexao_destinatario = estado.procurar_destinatario(destinatario)
+        EstadoIRC.liberar()
+
+        if conexao_destinatario is not None:
+            conexao_destinatario.enviar(b':%s PRIVMSG %s %s\r\n' % (conexao._apelido, conexao_destinatario._apelido, conteudo))
