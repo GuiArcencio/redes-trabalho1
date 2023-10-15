@@ -1,4 +1,5 @@
 import re
+import asyncio
 
 from grader.tcp import Conexao
 from estado_irc import EstadoIRC
@@ -17,9 +18,11 @@ def interpretar_mensagem(conexao: Conexao, msg: bytes):
         tratar_nick(conexao, b' '.join(campos[1:]))
     elif verbo == b'PRIVMSG' and len(campos) >= 3:
         if campos[1][0:1] == b'#':
-            pass
+            tratar_privmsg_canal(conexao, campos[1], b' '.join(campos[2:]))
         else:
             tratar_privmsg_pessoal(conexao, campos[1], b' '.join(campos[2:]))
+    elif verbo == b'JOIN' and conexao._apelido != b'*':
+        tratar_join(conexao, b' '.join(campos[1:]))
 
 
 def tratar_ping(conexao: Conexao, payload: bytes):
@@ -53,3 +56,35 @@ def tratar_privmsg_pessoal(conexao: Conexao, destinatario: bytes, conteudo: byte
 
         if conexao_destinatario is not None:
             conexao_destinatario.enviar(b':%s PRIVMSG %s %s\r\n' % (conexao._apelido, conexao_destinatario._apelido, conteudo))
+
+def tratar_privmsg_canal(conexao: Conexao, canal: bytes, conteudo: bytes):
+    if conexao._apelido != b'*' and len(conteudo) >= 2 and conteudo[0:1] == b':':
+        estado = EstadoIRC.obter()
+        conexoes_canal = estado.procurar_canal(canal)
+        EstadoIRC.liberar()
+
+        if conexoes_canal is not None:
+            mensagens = set()
+            for membro in conexoes_canal:
+                if membro is not conexao:
+                    mensagem = asyncio.create_task(enviar_assincrono(membro, b':%s PRIVMSG %s %s\r\n' % (conexao._apelido, canal.lower(), conteudo)))
+                    mensagens.add(mensagem)
+                    mensagem.add_done_callback(mensagens.discard)
+
+def tratar_join(conexao: Conexao, canal: bytes):
+    if canal[0:1] == b'#' and validar_nome(canal[1:]):
+        estado = EstadoIRC.obter()
+        membros = estado.adicionar_membro_ao_canal(conexao, canal)
+        EstadoIRC.liberar()
+
+        mensagens = set()
+        for membro in membros:
+            mensagem = asyncio.create_task(enviar_assincrono(membro, b':%s JOIN :%s\r\n' % (conexao._apelido, canal.lower())))
+            mensagens.add(mensagem)
+            mensagem.add_done_callback(mensagens.discard)
+    else:
+        conexao.enviar(b':server 403 %s :No such channel\r\n' % canal)
+
+
+async def enviar_assincrono(conexao: Conexao, dados: bytes):
+    return conexao.enviar(dados)
