@@ -15,14 +15,16 @@ def interpretar_mensagem(conexao: Conexao, msg: bytes):
     if verbo == b'PING':
         tratar_ping(conexao, b' '.join(campos[1:]))
     elif verbo == b'NICK':
-        tratar_nick(conexao, b' '.join(campos[1:]))
+        tratar_nick(conexao, campos[1])
     elif verbo == b'PRIVMSG' and len(campos) >= 3:
         if campos[1][0:1] == b'#':
             tratar_privmsg_canal(conexao, campos[1], b' '.join(campos[2:]))
         else:
             tratar_privmsg_pessoal(conexao, campos[1], b' '.join(campos[2:]))
     elif verbo == b'JOIN' and conexao._apelido != b'*':
-        tratar_join(conexao, b' '.join(campos[1:]))
+        tratar_join(conexao, campos[1])
+    elif verbo == b'PART':
+        tratar_part(conexao, campos[1])
 
 
 def tratar_ping(conexao: Conexao, payload: bytes):
@@ -76,6 +78,7 @@ def tratar_join(conexao: Conexao, canal: bytes):
         estado = EstadoIRC.obter()
         membros = estado.adicionar_membro_ao_canal(conexao, canal)
         EstadoIRC.liberar()
+        conexao._canais.add(canal.lower())
 
         mensagens = set()
         for membro in membros:
@@ -85,6 +88,21 @@ def tratar_join(conexao: Conexao, canal: bytes):
     else:
         conexao.enviar(b':server 403 %s :No such channel\r\n' % canal)
 
+def tratar_part(conexao: Conexao, canal: bytes):
+    canal = canal.lower()
+    if canal in conexao._canais:
+        estado = EstadoIRC.obter()
+        membros = estado.remover_membro_de_canal(conexao, canal)
+        EstadoIRC.liberar()
+        conexao._canais.remove(canal)
+
+        mensagens = set()
+        for membro in membros:
+            mensagem = asyncio.create_task(enviar_assincrono(membro, b':%s PART %s\r\n' % (conexao._apelido, canal.lower())))
+            mensagens.add(mensagem)
+            mensagem.add_done_callback(mensagens.discard)
+
+        conexao.enviar(b':%s PART %s\r\n' % (conexao._apelido, canal.lower()))
 
 async def enviar_assincrono(conexao: Conexao, dados: bytes):
     return conexao.enviar(dados)

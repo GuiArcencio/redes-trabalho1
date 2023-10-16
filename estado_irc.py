@@ -48,3 +48,12 @@ class EstadoIRC:
 
         self._canais[canal].add(conexao)
         return self._canais[canal]
+
+    def remover_membro_de_canal(self, conexao: Conexao, canal: bytes) -> set[Conexao]:
+        canal = canal.lower()
+        self._canais[canal].remove(conexao)
+        if len(self._canais[canal]) == 0:
+            self._canais.pop(canal)
+            return set()
+        
+        return self._canais[canal]

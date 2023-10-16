@@ -32,6 +32,7 @@ def conexao_aceita(conexao: Conexao):
 
     conexao._residuo = b''
     conexao._apelido = b'*'
+    conexao._canais = set()
     conexao.registrar_recebedor(dados_recebidos)
 
 def main():
