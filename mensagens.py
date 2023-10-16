@@ -84,11 +84,26 @@ def tratar_join(conexao: Conexao, canal: bytes):
 
         mensagens = set()
         for membro in membros:
-            mensagem = asyncio.create_task(
-                enviar_assincrono(membro, b':%s JOIN :%s\r\n' % (conexao._apelido, canal.lower()))
-            )
-            mensagens.add(mensagem)
-            mensagem.add_done_callback(mensagens.discard)
+            if membro is not conexao:
+                mensagem = asyncio.create_task(
+                    enviar_assincrono(membro, b':%s JOIN :%s\r\n' % (conexao._apelido, canal.lower()))
+                )
+                mensagens.add(mensagem)
+                mensagem.add_done_callback(mensagens.discard)
+        conexao.enviar(b':%s JOIN :%s\r\n' % (conexao._apelido, canal.lower()))
+
+        nomes_membros = sorted(list(map((lambda c: c._apelido.lower()), membros)))
+        msg_buffer = b':server 353 %s = %s :' % (conexao._apelido, canal.lower())
+        for nome in nomes_membros:
+            if len(msg_buffer + nome) < 510:
+                msg_buffer = msg_buffer + nome + b' '
+            else:
+                msg_buffer = msg_buffer[:-1] + b'\r\n'
+                conexao.enviar(msg_buffer)
+                msg_buffer = b':server 353 %s = %s :%s ' % (conexao._apelido, canal.lower(), nome)
+        msg_buffer = msg_buffer[:-1] + b'\r\n'
+        conexao.enviar(msg_buffer)
+        conexao.enviar(b':server 366 %s %s :End of /NAMES list.\r\n' % (conexao._apelido, canal.lower()))
     else:
         conexao.enviar(b':server 403 %s :No such channel\r\n' % canal)
 
