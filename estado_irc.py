@@ -57,3 +57,12 @@ class EstadoIRC:
             return set()
         
         return self._canais[canal]
+    
+    def remover_de_todos_canais(self, conexao: Conexao) -> set[Conexao]:
+        colegas = set()
+        for canal in conexao._canais:
+            colegas.update(self.remover_membro_de_canal(conexao, canal))
+
+        self._conexoes.pop(conexao._apelido)
+
+        return colegas

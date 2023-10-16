@@ -2,9 +2,11 @@
 import asyncio
 
 from grader.tcp import Servidor, Conexao
-from mensagens import interpretar_mensagem
+from mensagens import interpretar_mensagem, tratar_saida
 
 def sair(conexao: Conexao):
+    tratar_saida(conexao)
+
     ip_cliente, porta_cliente = conexao.s.getpeername()
     print(f'Conexão fechada com {ip_cliente}:{porta_cliente}')
 

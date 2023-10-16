@@ -69,7 +69,9 @@ def tratar_privmsg_canal(conexao: Conexao, canal: bytes, conteudo: bytes):
             mensagens = set()
             for membro in conexoes_canal:
                 if membro is not conexao:
-                    mensagem = asyncio.create_task(enviar_assincrono(membro, b':%s PRIVMSG %s %s\r\n' % (conexao._apelido, canal.lower(), conteudo)))
+                    mensagem = asyncio.create_task(
+                        enviar_assincrono(membro, b':%s PRIVMSG %s %s\r\n' % (conexao._apelido, canal.lower(), conteudo))
+                    )
                     mensagens.add(mensagem)
                     mensagem.add_done_callback(mensagens.discard)
 
@@ -82,7 +84,9 @@ def tratar_join(conexao: Conexao, canal: bytes):
 
         mensagens = set()
         for membro in membros:
-            mensagem = asyncio.create_task(enviar_assincrono(membro, b':%s JOIN :%s\r\n' % (conexao._apelido, canal.lower())))
+            mensagem = asyncio.create_task(
+                enviar_assincrono(membro, b':%s JOIN :%s\r\n' % (conexao._apelido, canal.lower()))
+            )
             mensagens.add(mensagem)
             mensagem.add_done_callback(mensagens.discard)
     else:
@@ -98,11 +102,26 @@ def tratar_part(conexao: Conexao, canal: bytes):
 
         mensagens = set()
         for membro in membros:
-            mensagem = asyncio.create_task(enviar_assincrono(membro, b':%s PART %s\r\n' % (conexao._apelido, canal.lower())))
+            mensagem = asyncio.create_task(
+                enviar_assincrono(membro, b':%s PART %s\r\n' % (conexao._apelido, canal.lower()))
+            )
             mensagens.add(mensagem)
             mensagem.add_done_callback(mensagens.discard)
 
         conexao.enviar(b':%s PART %s\r\n' % (conexao._apelido, canal.lower()))
+
+def tratar_saida(conexao: Conexao):
+    estado = EstadoIRC.obter()
+    colegas = estado.remover_de_todos_canais(conexao)
+    EstadoIRC.liberar()
+
+    mensagens = set()
+    for colega in colegas:
+        mensagem = asyncio.create_task(
+            enviar_assincrono(colega, b':%s QUIT :Connection closed\r\n' % conexao._apelido)
+        )
+        mensagens.add(mensagem)
+        mensagem.add_done_callback(mensagens.discard)
 
 async def enviar_assincrono(conexao: Conexao, dados: bytes):
     return conexao.enviar(dados)
